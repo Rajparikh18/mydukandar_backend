@@ -1,0 +1,185 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+generator kysely {
+  provider     = "prisma-kysely"
+  output       = "../src/generated/kysely"
+  fileName     = "types.ts"
+  enumFileName = "enums.ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───
+
+enum UserRole {
+  CUSTOMER
+  SHOP_OWNER
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PACKING
+  READY
+  PICKED_UP
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  ONLINE
+  UDHAAR
+}
+
+enum ProductCategory {
+  GROCERY
+  STATIONERY
+  MEDICAL
+  HOUSEHOLD
+  OTHER
+}
+
+// ─── Models ───
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  shop              Shop?
+  orders            Order[]
+  customerConnections CustomerShopConnection[]
+  payments          Payment[]
+  pushSubscriptions PushSubscription[]
+}
+
+model Shop {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  address     String
+  city        String
+  pincode     String
+  phone       String
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  ownerId    String @unique
+  owner      User   @relation(fields: [ownerId], references: [id])
+  products   Product[]
+  orders     Order[]
+  customers  CustomerShopConnection[]
+  payments   Payment[]
+}
+
+model Product {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  mrp         Float?
+  unit        String          @default("piece")
+  category    ProductCategory @default(GROCERY)
+  imageUrl    String?
+  inStock     Boolean         @default(true)
+  quantity    Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  shopId     String
+  shop       Shop       @relation(fields: [shopId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  status     OrderStatus @default(PENDING)
+  totalAmount Float
+  notes      String?
+  isPaid     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relations
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id])
+  shopId     String
+  shop       Shop   @relation(fields: [shopId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+}
+
+model OrderItem {
+  id       String @id @default(uuid())
+  quantity Int
+  price    Float
+
+  // Relations
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model CustomerShopConnection {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  balance   Float    @default(0)
+
+  // Relations
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id])
+  shopId     String
+  shop       Shop   @relation(fields: [shopId], references: [id])
+
+  @@unique([customerId, shopId])
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  amount     Float
+  method     PaymentMethod
+  note       String?
+  createdAt  DateTime      @default(now())
+
+  // Relations
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id])
+  shopId     String
+  shop       Shop   @relation(fields: [shopId], references: [id])
+  orderId    String?
+  order      Order? @relation(fields: [orderId], references: [id])
+}
+
+model PushSubscription {
+  id             String   @id @default(uuid())
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  expirationTime DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
