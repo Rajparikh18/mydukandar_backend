@@ -18,6 +18,11 @@ export const PaymentMethod = {
     UDHAAR: "UDHAAR"
 } as const;
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
+export const DeliveryMode = {
+    SELF_PICKUP: "SELF_PICKUP",
+    DELIVERY: "DELIVERY"
+} as const;
+export type DeliveryMode = (typeof DeliveryMode)[keyof typeof DeliveryMode];
 export const ProductCategory = {
     GROCERY: "GROCERY",
     STATIONERY: "STATIONERY",

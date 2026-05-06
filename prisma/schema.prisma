@@ -39,6 +39,11 @@ enum PaymentMethod {
   UDHAAR
 }
 
+enum DeliveryMode {
+  SELF_PICKUP
+  DELIVERY
+}
+
 enum ProductCategory {
   GROCERY
   STATIONERY
@@ -111,13 +116,14 @@ model Product {
 }
 
 model Order {
-  id         String      @id @default(uuid())
-  status     OrderStatus @default(PENDING)
-  totalAmount Float
-  notes      String?
-  isPaid     Boolean     @default(false)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id           String       @id @default(uuid())
+  status       OrderStatus  @default(PENDING)
+  totalAmount  Float
+  notes        String?
+  isPaid       Boolean      @default(false)
+  deliveryMode DeliveryMode @default(SELF_PICKUP)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   // Relations
   customerId String

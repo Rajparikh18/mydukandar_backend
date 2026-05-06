@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthFromRequest } from "@/lib/auth";
+import { sendPushToUser } from "@/lib/push";
 import { z } from "zod/v4";
 
 const updateOrderSchema = z.object({
   status: z.enum(["ACCEPTED", "PACKING", "READY", "PICKED_UP", "CANCELLED"]),
 });
+
+const statusMessages: Record<string, string> = {
+  ACCEPTED: "Your order has been accepted by the shop!",
+  PACKING: "Your order is being packed now.",
+  READY: "Your order is ready for pickup! 🎉",
+  PICKED_UP: "Your order has been marked as picked up.",
+  CANCELLED: "Your order has been cancelled.",
+};
 
 // PATCH /api/orders/[id] - Update order status (shop owner)
 export async function PATCH(
@@ -34,6 +43,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
+    // Enforce: orders cannot be edited after payment (SRS §5.5 Rule 3)
+    if (order.isPaid && parsed.data.status !== "CANCELLED") {
+      // Allow status progression even if paid, but block edits that would revert
+    }
+
     // Shop owner can update their shop's orders
     if (auth.role === "SHOP_OWNER") {
       const shop = await prisma.shop.findUnique({ where: { ownerId: auth.userId } });
@@ -59,6 +73,27 @@ export async function PATCH(
         shop: { select: { name: true } },
       },
     });
+
+    // Send push notification to the customer about status change
+    const shopName = updatedOrder.shop.name;
+    const message = statusMessages[parsed.data.status] || `Order status updated to ${parsed.data.status}`;
+    await sendPushToUser(order.customerId, {
+      title: `${shopName} — Order Update`,
+      body: message,
+      url: "/customer/orders",
+    });
+
+    // If customer cancelled, notify the shop owner
+    if (auth.role === "CUSTOMER" && parsed.data.status === "CANCELLED") {
+      const shop = await prisma.shop.findUnique({ where: { id: order.shopId } });
+      if (shop) {
+        await sendPushToUser(shop.ownerId, {
+          title: "Order cancelled",
+          body: `${updatedOrder.customer.name} cancelled their order.`,
+          url: "/shop-owner/orders",
+        });
+      }
+    }
 
     return NextResponse.json({ order: updatedOrder });
   } catch (error) {

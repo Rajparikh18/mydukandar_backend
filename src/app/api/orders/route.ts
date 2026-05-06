@@ -13,6 +13,7 @@ const createOrderSchema = z.object({
     })
   ).min(1),
   notes: z.string().optional(),
+  deliveryMode: z.enum(["SELF_PICKUP", "DELIVERY"]).default("SELF_PICKUP"),
 });
 
 // GET /api/orders - Get orders (customer sees their orders, shop owner sees shop orders)
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { shopId, items, notes } = parsed.data;
+    const { shopId, items, notes, deliveryMode } = parsed.data;
 
     // Verify shop exists
     const shop = await prisma.shop.findUnique({ where: { id: shopId } });
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
         shopId,
         totalAmount,
         notes,
+        deliveryMode,
         items: { create: orderItems },
       },
       include: {

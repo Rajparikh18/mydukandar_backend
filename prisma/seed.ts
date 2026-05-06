@@ -10,6 +10,8 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Clear existing data
+  await prisma.payment.deleteMany();
+  await prisma.pushSubscription.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.customerShopConnection.deleteMany();
