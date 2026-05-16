@@ -117,13 +117,14 @@ model Product {
 
 model Order {
   id           String       @id @default(uuid())
-  status       OrderStatus  @default(PENDING)
+  status       OrderStatus   @default(PENDING)
   totalAmount  Float
   notes        String?
-  isPaid       Boolean      @default(false)
-  deliveryMode DeliveryMode @default(SELF_PICKUP)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  isPaid       Boolean       @default(false)
+  paymentMode  PaymentMethod @default(CASH)
+  deliveryMode DeliveryMode  @default(SELF_PICKUP)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   // Relations
   customerId String

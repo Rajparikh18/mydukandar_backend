@@ -19,6 +19,7 @@ export type Order = {
     totalAmount: number;
     notes: string | null;
     isPaid: Generated<boolean>;
+    paymentMode: Generated<PaymentMethod>;
     deliveryMode: Generated<DeliveryMode>;
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;

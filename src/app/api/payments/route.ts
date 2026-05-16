@@ -147,11 +147,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
+    let isFullyPaidNow = false;
     if (orderId) {
-      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      const order = await prisma.order.findUnique({ 
+        where: { id: orderId },
+        include: { payments: { select: { amount: true } } }
+      });
       if (!order || order.shopId !== shop.id || order.customerId !== customer.id) {
         return NextResponse.json({ error: "Invalid order mapping" }, { status: 400 });
       }
+      const previousPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
+      isFullyPaidNow = (previousPaid + amount) >= order.totalAmount;
     }
 
     const signedAmount = normalizePaymentMethod(method) === "UDHAAR" ? amount : -amount;
@@ -188,7 +194,7 @@ export async function POST(req: NextRequest) {
           balance: { increment: signedAmount },
         },
       }),
-      ...(orderId && method !== "UDHAAR"
+      ...(orderId && method !== "UDHAAR" && isFullyPaidNow
         ? [
             prisma.order.update({
               where: { id: orderId },

@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
             { address: { contains: search, mode: "insensitive" } },
+            { city: { contains: search, mode: "insensitive" } },
+            { pincode: { contains: search, mode: "insensitive" } },
           ],
         }),
         ...(city && { city: { contains: city, mode: "insensitive" } }),

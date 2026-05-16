@@ -14,6 +14,7 @@ const createOrderSchema = z.object({
   ).min(1),
   notes: z.string().optional(),
   deliveryMode: z.enum(["SELF_PICKUP", "DELIVERY"]).default("SELF_PICKUP"),
+  paymentMode: z.enum(["CASH", "ONLINE", "UDHAAR"]),
 });
 
 // GET /api/orders - Get orders (customer sees their orders, shop owner sees shop orders)
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
         },
         customer: { select: { id: true, name: true, phone: true } },
         shop: { select: { name: true, address: true } },
+        payments: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { shopId, items, notes, deliveryMode } = parsed.data;
+    const { shopId, items, notes, deliveryMode, paymentMode } = parsed.data;
 
     // Verify shop exists
     const shop = await prisma.shop.findUnique({ where: { id: shopId } });
@@ -112,30 +114,40 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const order = await prisma.order.create({
-      data: {
-        customerId: auth.userId,
-        shopId,
-        totalAmount,
-        notes,
-        deliveryMode,
-        items: { create: orderItems },
-      },
-      include: {
-        items: {
-          include: { product: { select: { name: true, unit: true } } },
-        },
-        shop: { select: { name: true } },
-      },
-    });
+    const isPaid = false; // Never paid at checkout, requires shop owner verification
 
-    // Auto-connect customer to shop if not connected
-    await prisma.customerShopConnection.upsert({
-      where: {
-        customerId_shopId: { customerId: auth.userId, shopId },
-      },
-      create: { customerId: auth.userId, shopId },
-      update: {},
+    const order = await prisma.$transaction(async (tx) => {
+      const newOrder = await tx.order.create({
+        data: {
+          customerId: auth.userId,
+          shopId,
+          totalAmount,
+          notes,
+          deliveryMode,
+          paymentMode,
+          isPaid,
+          items: { create: orderItems },
+        },
+        include: {
+          items: {
+            include: { product: { select: { name: true, unit: true } } },
+          },
+          shop: { select: { name: true } },
+        },
+      });
+
+      // Balance (Dues) always increases by the total amount. It will decrease when shop owner collects payment.
+      const netBalanceChange = totalAmount;
+
+      await tx.customerShopConnection.upsert({
+        where: {
+          customerId_shopId: { customerId: auth.userId, shopId },
+        },
+        create: { customerId: auth.userId, shopId, balance: netBalanceChange },
+        update: { balance: { increment: netBalanceChange } },
+      });
+
+      return newOrder;
     });
 
     const customer = await prisma.user.findUnique({

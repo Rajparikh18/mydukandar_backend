@@ -34,14 +34,52 @@ export async function GET(req: NextRequest) {
     const connections = await prisma.customerShopConnection.findMany({
       where: whereClause,
       include: {
-        customer: { select: { id: true, name: true, phone: true } },
+        customer: { 
+          select: { 
+            id: true, 
+            name: true, 
+            phone: true,
+            _count: {
+              select: {
+                orders: { where: { shopId: shop.id } }
+              }
+            },
+            orders: {
+              where: { shopId: shop.id },
+              select: { totalAmount: true }
+            },
+            payments: {
+              where: { shopId: shop.id },
+              select: { amount: true, method: true }
+            }
+          } 
+        },
         shop: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 100,
     });
 
-    return NextResponse.json({ balances: connections });
+    // Dynamically calculate true balance to account for historical orders before balance tracking was added
+    const connectionsWithTrueBalance = connections.map(conn => {
+      const totalOrdered = conn.customer.orders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const totalPaid = conn.customer.payments.filter(p => p.method !== "UDHAAR").reduce((sum, p) => sum + p.amount, 0);
+      const manualUdhaar = conn.customer.payments.filter(p => p.method === "UDHAAR").reduce((sum, p) => sum + p.amount, 0);
+      const trueBalance = totalOrdered + manualUdhaar - totalPaid;
+      
+      return {
+        ...conn,
+        balance: trueBalance,
+        customer: {
+          id: conn.customer.id,
+          name: conn.customer.name,
+          phone: conn.customer.phone,
+          _count: conn.customer._count
+        }
+      };
+    });
+
+    return NextResponse.json({ balances: connectionsWithTrueBalance });
   } catch (error) {
     console.error("Get customers error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
