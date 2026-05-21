@@ -64,9 +64,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const product = await prisma.product.create({
-      data: { ...parsed.data, shopId: shop.id, inStock: true },
+    // Find existing product
+    const existingProduct = await prisma.product.findFirst({
+      where: {
+        shopId: shop.id,
+        name: { equals: parsed.data.name, mode: "insensitive" },
+        unit: { equals: parsed.data.unit, mode: "insensitive" },
+      },
     });
+
+    let product;
+    if (existingProduct) {
+      product = await prisma.product.update({
+        where: { id: existingProduct.id },
+        data: {
+          quantity: existingProduct.quantity + parsed.data.quantity,
+          price: parsed.data.price, // Update price to latest
+          mrp: parsed.data.mrp ?? null,
+          inStock: true,
+        },
+      });
+    } else {
+      product = await prisma.product.create({
+        data: { ...parsed.data, shopId: shop.id, inStock: true },
+      });
+    }
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

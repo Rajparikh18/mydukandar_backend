@@ -190,3 +190,15 @@ model PushSubscription {
   userId String
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model GlobalProduct {
+  id              String          @id @default(uuid())
+  name            String          @unique
+  defaultPrice    Float
+  defaultMrp      Float?
+  defaultUnit     String          @default("piece")
+  defaultCategory ProductCategory @default(GROCERY)
+  defaultQuantity Int             @default(10)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}

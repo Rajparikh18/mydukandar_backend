@@ -13,6 +13,17 @@ export type CustomerShopConnection = {
     customerId: string;
     shopId: string;
 };
+export type GlobalProduct = {
+    id: string;
+    name: string;
+    defaultPrice: number;
+    defaultMrp: number | null;
+    defaultUnit: Generated<string>;
+    defaultCategory: Generated<ProductCategory>;
+    defaultQuantity: Generated<number>;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+};
 export type Order = {
     id: string;
     status: Generated<OrderStatus>;
@@ -95,6 +106,7 @@ export type User = {
 };
 export type DB = {
     CustomerShopConnection: CustomerShopConnection;
+    GlobalProduct: GlobalProduct;
     Order: Order;
     OrderItem: OrderItem;
     Payment: Payment;
