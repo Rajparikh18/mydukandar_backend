@@ -31,8 +31,21 @@ export async function POST(req: NextRequest) {
 
     const transcript = parsed.data.transcript.toLowerCase();
 
-    // Fetch all global products
-    const globalProducts = await prisma.globalProduct.findMany();
+    // Fetch all global products. If the GlobalProduct table doesn't exist in the
+    // database (Prisma error P2021), treat as no global products available and
+    // continue gracefully so voice parsing doesn't crash the API.
+    let globalProducts: { name: string; defaultPrice: number; defaultMrp?: number | null; defaultUnit: string; defaultCategory: string; defaultQuantity: number }[] = [];
+    try {
+      globalProducts = await prisma.globalProduct.findMany();
+    } catch (err: unknown) {
+      const code = typeof err === "object" && err !== null && "code" in err ? (err as any).code : null;
+      if (code === "P2021") {
+        console.warn("GlobalProduct table not present; voice-parse will return no matches.");
+        globalProducts = [];
+      } else {
+        throw err;
+      }
+    }
 
     const matchedProducts = globalProducts.filter((product) =>
       transcript.includes(product.name.toLowerCase())

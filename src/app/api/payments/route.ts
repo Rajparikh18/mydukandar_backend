@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthFromRequest } from "@/lib/auth";
 
 const paymentMethodSchema = z.enum(["CASH", "ONLINE", "UDHAAR"]);
+const PAYMENT_EPSILON = 0.01;
 
 const createPaymentSchema = z.object({
   customerId: z.string().uuid().optional(),
@@ -157,7 +158,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid order mapping" }, { status: 400 });
       }
       const previousPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
-      isFullyPaidNow = (previousPaid + amount) >= order.totalAmount;
+      const nextPaidTotal = previousPaid + amount;
+      isFullyPaidNow = nextPaidTotal >= (order.totalAmount - PAYMENT_EPSILON);
     }
 
     const signedAmount = normalizePaymentMethod(method) === "UDHAAR" ? amount : -amount;
@@ -194,11 +196,11 @@ export async function POST(req: NextRequest) {
           balance: { increment: signedAmount },
         },
       }),
-      ...(orderId && method !== "UDHAAR" && isFullyPaidNow
+      ...(orderId && method !== "UDHAAR"
         ? [
             prisma.order.update({
               where: { id: orderId },
-              data: { isPaid: true },
+              data: { isPaid: isFullyPaidNow },
             }),
           ]
         : []),

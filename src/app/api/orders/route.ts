@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const isPaid = false; // Never paid at checkout, requires shop owner verification
+    const isPaid = paymentMode === "ONLINE"; // Online payments are paid immediately
 
     const order = await prisma.$transaction(async (tx) => {
       const newOrder = await tx.order.create({
@@ -136,8 +136,8 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Balance (Dues) always increases by the total amount. It will decrease when shop owner collects payment.
-      const netBalanceChange = totalAmount;
+      // Balance (Dues) increases only for unpaid orders. Online payments don't increase dues
+      const netBalanceChange = isPaid ? 0 : totalAmount;
 
       await tx.customerShopConnection.upsert({
         where: {

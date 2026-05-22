@@ -24,40 +24,7 @@ export async function sendPushToUser(
   userId: string,
   payload: { title: string; body: string; url?: string }
 ) {
-  if (!isConfigured) return;
-
-  const subscriptions = await prisma.pushSubscription.findMany({
-    where: { userId },
-  });
-
-  if (!subscriptions.length) return;
-
-  const payloadText = JSON.stringify(payload);
-
-  await Promise.all(
-    subscriptions.map(async (subscription) => {
-      const pushSubscription: PushSubscription = {
-        endpoint: subscription.endpoint,
-        expirationTime: subscription.expirationTime ? subscription.expirationTime.getTime() : null,
-        keys: {
-          p256dh: subscription.p256dh,
-          auth: subscription.auth,
-        },
-      };
-
-      try {
-        await webpush.sendNotification(pushSubscription, payloadText);
-      } catch (error: unknown) {
-        // Remove stale subscriptions that are no longer valid.
-        const statusCode =
-          typeof error === "object" && error !== null && "statusCode" in error
-            ? Number((error as { statusCode?: number }).statusCode)
-            : undefined;
-
-        if (statusCode === 404 || statusCode === 410) {
-          await prisma.pushSubscription.delete({ where: { endpoint: subscription.endpoint } });
-        }
-      }
-    })
-  );
+  // Notifications feature temporarily disabled / terminated.
+  // Keep function as a no-op to avoid runtime errors where called.
+  return;
 }
