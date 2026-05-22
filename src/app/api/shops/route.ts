@@ -12,26 +12,67 @@ const createShopSchema = z.object({
   phone: z.string().min(10),
 });
 
-// GET /api/shops - Search shops by name, city
+// GET /api/shops - Search shops by shop name, location, owner name, or product name
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search") || "";
-    const city = searchParams.get("city") || "";
+    const search = (searchParams.get("search") || "").trim();
+    const city = (searchParams.get("city") || "").trim();
 
-    const shops = await prisma.shop.findMany({
-      where: {
-        isActive: true,
-        ...(search && {
+    const matchingShopIds = new Set<string>();
+
+    if (search) {
+      const directShopMatches = await prisma.shop.findMany({
+        where: {
+          isActive: true,
           OR: [
             { name: { contains: search, mode: "insensitive" } },
             { address: { contains: search, mode: "insensitive" } },
             { city: { contains: search, mode: "insensitive" } },
             { pincode: { contains: search, mode: "insensitive" } },
           ],
-        }),
-        ...(city && { city: { contains: city, mode: "insensitive" } }),
-      },
+        },
+        select: { id: true },
+      });
+
+      const ownerMatches = await prisma.user.findMany({
+        where: {
+          name: { contains: search, mode: "insensitive" },
+        },
+        select: {
+          shop: {
+            select: { id: true },
+          },
+        },
+      });
+
+      const productMatches = await prisma.product.findMany({
+        where: {
+          name: { contains: search, mode: "insensitive" },
+        },
+        select: { shopId: true },
+        distinct: ["shopId"],
+      });
+
+      directShopMatches.forEach((shop) => matchingShopIds.add(shop.id));
+      ownerMatches.forEach((user) => {
+        if (user.shop?.id) matchingShopIds.add(user.shop.id);
+      });
+      productMatches.forEach((product) => matchingShopIds.add(product.shopId));
+    }
+
+    const where: Record<string, unknown> = { isActive: true };
+
+    if (city) {
+      where.city = { contains: city, mode: "insensitive" };
+    }
+
+    if (search) {
+      where.id = { in: Array.from(matchingShopIds) };
+    }
+
+    const shops = await prisma.shop.findMany({
+      where,
       include: {
         owner: { select: { name: true } },
         _count: { select: { products: true } },

@@ -48,10 +48,10 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         items: {
-          include: { product: { select: { name: true, unit: true } } },
+          include: { product: { select: { id: true, name: true, unit: true } } },
         },
         customer: { select: { id: true, name: true, phone: true } },
-        shop: { select: { name: true, address: true } },
+        shop: { select: { id: true, name: true, address: true } },
         payments: true,
       },
       orderBy: { createdAt: "desc" },
@@ -130,9 +130,9 @@ export async function POST(req: NextRequest) {
         },
         include: {
           items: {
-            include: { product: { select: { name: true, unit: true } } },
+            include: { product: { select: { id: true, name: true, unit: true } } },
           },
-          shop: { select: { name: true } },
+          shop: { select: { id: true, name: true } },
         },
       });
 
